@@ -1,0 +1,45 @@
+﻿@using PonudeApp.API.ViewModels
+
+@model PonudeViewModel
+
+@{
+    ViewData["Title"] = "Pregled ponuda";
+}
+
+<h2 class="mb-3">Pregled ponuda</h2>
+
+<a href="@Url.Action("Create", "Ponuda")" class="btn btn-success mb-3">Dodaj novu ponudu</a>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Broj ponude</th>
+            <th>Datum ponude</th>
+            <th>Akcije</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var ponuda in Model.Ponude)
+        {
+            <tr>
+                <td>@ponuda.BrojPonude</td>
+                <td>@ponuda.DatumPonude.ToShortDateString()</td>
+                <td>
+                    <a href="@Url.Action("Edit", "Ponuda", new { id = ponuda.Id })" class="btn btn-primary">Uredi</a>
+                    <a href="@Url.Action("Delete", "Ponuda", new { id = ponuda.Id })" class="btn btn-danger">Obriši</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<div>
+    <ul class="pagination">
+        @for (int i = 1; i <= Model.TotalPages; i++)
+        {
+            <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                <a class="page-link" href="@Url.Action("Index", new { page = i })">@i</a>
+            </li>
+        }
+    </ul>
+</div>

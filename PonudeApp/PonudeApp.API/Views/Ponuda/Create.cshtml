@@ -1,0 +1,201 @@
+﻿@using PonudeApp.API.ViewModels
+
+@model CreatePonudaViewModel
+
+@{
+    ViewData["Title"] = "Kreiranje ponude";
+}
+
+<h2>Kreiranje ponude</h2>
+
+<form id="ponudaForm">
+    <div class="mb-3">
+        <label for="BrojPonude" class="form-label">Broj ponude</label>
+        <input type="text" id="BrojPonude" class="form-control" value="@Model.BrojPonude" readonly>
+    </div>
+
+    <div class="mb-3">
+        <label for="DatumPonude" class="form-label">Datum ponude</label>
+        <input type="text" id="DatumPonude" class="form-control" value="@DateTime.UtcNow.ToShortDateString()" readonly>
+    </div>
+
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#stavkaModal">
+        Dodaj stavku
+    </button>
+
+    <table class="table mt-3">
+        <thead>
+            <tr>
+                <th>Artikl</th>
+                <th>Jedinična cijena</th>
+                <th>Količina</th>
+                <th>Ukupna cijena</th>
+                <th>Akcije</th>
+            </tr>
+        </thead>
+        <tbody id="stavkeTableBody">
+            <!-- Dinamički se popunjava stavkama -->
+        </tbody>
+    </table>
+
+    <button id="spremiPonudu" type="button" class="btn btn-success">Spremi ponudu</button>
+</form>
+
+<!-- Modalni dijalog -->
+<div class="modal fade" id="stavkaModal" tabindex="-1" aria-labelledby="stavkaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="stavkaModalLabel">Dodaj / Uredi stavku</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zatvori"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="artikl" class="form-label">Artikl</label>
+                    <input id="artikl" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="jedinicnaCijena" class="form-label">Jedinična cijena</label>
+                    <input type="number" id="jedinicnaCijena" class="form-control" min="0">
+                </div>
+                <div class="mb-3">
+                    <label for="kolicina" class="form-label">Količina</label>
+                    <input type="number" id="kolicina" class="form-control" min="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zatvori</button>
+                <button type="button" class="btn btn-primary" id="dodajStavku">Dodaj</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stavke = [];
+    let editIndex = -1;
+
+    document.getElementById("dodajStavku").addEventListener("click", function () {
+        const artikl = document.getElementById("artikl").value;
+        const cijena = parseFloat(document.getElementById("jedinicnaCijena").value);
+        const kolicina = parseInt(document.getElementById("kolicina").value);
+
+        // Validation
+        if (!artikl || artikl.trim() === "") {
+            alert("Morate unijeti naziv artikla!");
+            return;
+        }
+        if (isNaN(cijena) || cijena <= 0) {
+            alert("Cijena mora biti pozitivan broj!");
+            return;
+        }
+        if (isNaN(kolicina) || kolicina < 1) {
+            alert("Količina mora biti pozitivan broj!");
+            return;
+        }
+
+        const stavka = {
+            artikl,
+            jedinicnaCijena: cijena,
+            kolicina,
+            ukupna: cijena * kolicina
+        };
+
+        if (editIndex === -1) {
+            stavke.push(stavka);
+        } else {
+            stavke[editIndex] = stavka;
+            editIndex = -1;
+        }
+
+        document.getElementById("stavkaModal").querySelector(".btn-close").click();
+        renderTable();
+    });
+
+    function renderTable() {
+        const tbody = document.getElementById("stavkeTableBody");
+        tbody.innerHTML = "";
+        stavke.forEach((s, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${s.artikl}</td>
+                    <td>${s.jedinicnaCijena.toFixed(2)}</td>
+                    <td>${s.kolicina}</td>
+                    <td>${s.ukupna.toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editStavka(${index})">Uredi</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteStavka(${index})">Obriši</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function editStavka(index) {
+        const stavka = stavke[index];
+        document.getElementById("artikl").value = stavka.artikl;
+        document.getElementById("jedinicnaCijena").value = stavka.jedinicnaCijena;
+        document.getElementById("kolicina").value = stavka.kolicina;
+        editIndex = index;
+        new bootstrap.Modal(document.getElementById("stavkaModal")).show();
+    }
+
+    function deleteStavka(index) {
+        stavke.splice(index, 1);
+        renderTable();
+    }
+
+    document.getElementById("spremiPonudu").addEventListener("click", function (event) {
+        event.preventDefault();
+
+        // Additional client-side validation
+        const brojPonude = parseInt(document.getElementById("BrojPonude").value);
+
+        if (isNaN(brojPonude) || brojPonude <= 0) {
+            alert("Broj ponude mora biti validan!");
+            return;
+        }
+
+        if (stavke.length === 0) {
+            alert("Morate dodati barem jednu stavku!");
+            return;
+        }
+
+        const ponuda = {
+            brojPonude: brojPonude,
+            stavke: stavke.map(s => ({
+                artikl: s.artikl,
+                jedinicnaCijena: s.jedinicnaCijena,
+                kolicina: s.kolicina
+            }))
+        };
+
+        console.log(JSON.stringify(ponuda))
+
+        fetch("/Ponuda/Create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ponuda)
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = "/Ponuda/Index";
+            } else {
+                return response.json().then(errorData => {
+                    let errorMessage = "Došlo je do greške pri spremanju ponude.";
+                    if (errorData && errorData.errors) {
+                        // Combine all error messages
+                        errorMessage = Object.values(errorData.errors)
+                            .flat()
+                            .join('\n');
+                    }
+                    alert(errorMessage);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Došlo je do greške pri spremanju ponude.");
+        });
+    });
+</script>
